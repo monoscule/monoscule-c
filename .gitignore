@@ -1,0 +1,10 @@
+*.o
+*.dSYM
+.DS_Store
+.vscode
+.idea
+/*.pgm
+/out
+/test
+/nanomagick
+/document_scanner
