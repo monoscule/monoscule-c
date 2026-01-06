@@ -67,24 +67,66 @@ static inline int ms_valid(struct ms_image img) { return img.data && img.w > 0 &
 
 #ifdef ms_NO_STDLIB  // no asserts, no memory allocation, no file I/O
 #define ms_assert(cond)
-static inline float ms_atan2(float y, float x) {
-  if (x == 0.0f) { return (y > 0.0f ? 1.570796f : (y < 0.0f ? -1.570796f : 0.0f)); }
-  float r, angle, abs_y = (y >= 0.0f ? y : -y);
-  if (x >= 0.0f)
-    r = (x - abs_y) / (x + abs_y), angle = 0.785398f - 0.785398f * r;
-  else
-    r = (x + abs_y) / (abs_y - x), angle = 3.0f * 0.785398f - 0.785398f * r;
-  return (y < 0.0f ? -angle : angle);
+static inline float ms_atan2(float y, float x)
+{
+    union { float f; uint32_t i; } ux = {x}, uy = {y};
+
+    uint32_t sign_x = ux.i & 0x80000000u;
+    uint32_t sign_y = uy.i & 0x80000000u;
+
+    ux.i &= 0x7FFFFFFFu;
+    uy.i &= 0x7FFFFFFFu;
+
+    float ax = ux.f;
+    float ay = uy.f;
+
+    // Compute once
+    int swap = ay > ax;
+
+    float a = swap ? ax : ay;
+    float b = swap ? ay : ax;
+
+    if (b == 0.0f)
+        return 0.0f;
+
+    float r  = a / b;
+    float r2 = r * r;
+
+    // Polynomial atan(r)
+    float angle =
+        (((-0.0464964749f * r2 + 0.15931422f) * r2
+           - 0.327622764f) * r2) * r + r;
+
+    // Quadrant correction
+    if (swap)
+        angle = 1.570796327f - angle;
+
+    if (x < 0.0f)
+        angle = 3.141592654f - angle;
+
+    // Restore sign of y
+    union { float f; uint32_t i; } ures = { angle };
+    ures.i = (ures.i & 0x7FFFFFFFu) | sign_y;
+
+    return ures.f;
 }
 
-static inline float ms_sin(float x) {
-  while (x > 3.141592f) x -= 6.283185f;
-  while (x < -3.141592f) x += 6.283185f;
-  int sign = 1;
-  if (x < 0) x = -x, sign = -1;
-  if (x > 1.570796f) x = 3.141592f - x;
-  float x2 = x * x, res = x * (1.0f - x2 * (0.16666667f - 0.0083333310f * x2));
-  return sign * res;
+float ms_sin(float var) {
+    const float PI      = 3.14159265f;
+    const float TAU     = 6.28318531f;
+    const float INV_TAU = 0.15915494f; 
+    const float PI_SQ   = 9.86960440f;
+
+    float n = (float)((int)(var * INV_TAU + (var >= 0 ? 0.5f : -0.5f)));
+    var -= n * TAU;
+
+    union { float f; uint32_t i; } u = { var };
+    float sign = (u.i & 0x80000000u) ? -1.0f : 1.0f;
+    u.i &= 0x7FFFFFFFu;
+    var = u.f;
+
+    float arc = var * (PI - var);
+    return sign * (16.0f * arc) / ((5.0f * PI_SQ) - (4.0f * arc));
 }
 #else
 #include <math.h>
