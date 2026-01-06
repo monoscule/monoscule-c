@@ -20,7 +20,7 @@ Check out the [examples](examples) folder for more!
 ## Quickstart
 
 ```c
-#include "monoscule-c.h"
+#include "monoscule.h"
 
 struct ms_image img = ms_read_pgm("input.pgm");
 struct ms_image blurred = ms_alloc(img.w, img.h);
